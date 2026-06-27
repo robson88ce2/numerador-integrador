@@ -44,23 +44,102 @@ export async function updateDelegacia(
   id: number,
   nome: string,
   codigo: string,
-  username: string
+  username: string,
+  password?: string
 ): Promise<void> {
+
   if (!nome.trim() || !codigo.trim() || !username.trim()) {
-    throw new Error('Nome, código e usuário são obrigatórios.');
+    throw new Error("Nome, código e usuário são obrigatórios.");
   }
+
+  if (password && password.trim() !== "") {
+
+    await query(
+      `UPDATE delegacias
+       SET nome = $1,
+           codigo = $2,
+           username = $3,
+           senha_hash = $4
+       WHERE id = $5`,
+      [
+        nome.trim(),
+        codigo.trim(),
+        username.trim(),
+        hashPw(password),
+        id,
+      ]
+    );
+
+  } else {
+
+    await query(
+      `UPDATE delegacias
+       SET nome = $1,
+           codigo = $2,
+           username = $3
+       WHERE id = $4`,
+      [
+        nome.trim(),
+        codigo.trim(),
+        username.trim(),
+        id,
+      ]
+    );
+
+  }
+}
+
+export async function toggleDelegacia(
+  id: number,
+  ativa: boolean
+): Promise<void> {
   await query(
-    'UPDATE delegacias SET nome = $1, codigo = $2, username = $3 WHERE id = $4',
-    [nome.trim(), codigo.trim(), username.trim(), id]
+    "UPDATE delegacias SET ativa = $1 WHERE id = $2",
+    [ativa, id]
   );
 }
 
-export async function toggleDelegacia(id: number, ativa: boolean): Promise<void> {
-  await query('UPDATE delegacias SET ativa = $1 WHERE id = $2', [ativa, id]);
-}
-
 export async function deleteDelegacia(id: number): Promise<void> {
-  await query('DELETE FROM delegacias WHERE id = $1', [id]);
+  const client = await getClient();
+
+  try {
+    await client.query("BEGIN");
+
+    // Remove os documentos da delegacia
+    await client.query(
+      "DELETE FROM documentos WHERE delegacia_id = $1",
+      [id]
+    );
+
+    // Remove os índices da delegacia
+    await client.query(
+      "DELETE FROM indices WHERE delegacia_id = $1",
+      [id]
+    );
+
+    // Remove a delegacia
+    const result = await client.query(
+      "DELETE FROM delegacias WHERE id = $1",
+      [id]
+    );
+
+    if (result.rowCount === 0) {
+      throw new Error("Delegacia não encontrada.");
+    }
+
+    await client.query("COMMIT");
+
+  } catch (error) {
+
+    await client.query("ROLLBACK");
+    throw error;
+
+  } finally {
+
+    client.release();
+
+  }
+
 }
 
 export async function changeDelegaciaPassword(id: number, password: string): Promise<void> {

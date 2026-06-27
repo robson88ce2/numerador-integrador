@@ -6,6 +6,7 @@ import { authOptions } from './api/auth/[...nextauth]';
 import { Sidebar } from '../src/components/dashboard/Sidebar';
 import { Header } from '../src/components/dashboard/Header';
 
+
 const superuserTabs = ['Delegacias', 'Histórico Global', 'Backup Global', 'Status'];
 const delegaciaTabs = ['Gerar Documento', 'Histórico', 'Backup', 'Status'];
 const TIPOS_DOCUMENTO = [
@@ -51,6 +52,8 @@ type EditFormState = {
   nome: string;
   codigo: string;
   username: string;
+  senha: string;
+  senha2: string;
 };
 
 function csvEncode(value: string | number | null | undefined) {
@@ -87,7 +90,13 @@ export default function Dashboard() {
     senha2: '',
   });
   const [editTarget, setEditTarget] = useState<Delegacia | null>(null);
-  const [editForm, setEditForm] = useState<EditFormState>({ nome: '', codigo: '', username: '' });
+  const [editForm, setEditForm] = useState<EditFormState>({
+  nome: "",
+  codigo: "",
+  username: "",
+  senha: "",
+  senha2: "",
+});
   const [selectedDelegaciaId, setSelectedDelegaciaId] = useState<number | null>(null);
   const [indices, setIndices] = useState<IndexInfo[]>([]);
   const [tipoIndice, setTipoIndice] = useState(TIPOS_DOCUMENTO[0]);
@@ -228,67 +237,77 @@ export default function Dashboard() {
 
   const startEditDelegacia = (delegacia: Delegacia) => {
     setEditTarget(delegacia);
-    setEditForm({ nome: delegacia.nome, codigo: delegacia.codigo, username: delegacia.username });
+    setEditForm({
+  nome: delegacia.nome,
+  codigo: delegacia.codigo,
+  username: delegacia.username,
+  senha: '',
+  senha2: '',
+});
     setStatusMessage('');
   };
 
   const cancelEditDelegacia = () => {
     setEditTarget(null);
-    setEditForm({ nome: '', codigo: '', username: '' });
+    setEditForm({
+  nome: '',
+  codigo: '',
+  username: '',
+  senha: '',
+  senha2: '',
+});
     setStatusMessage('');
   };
 
-  const handleUpdateDelegacia = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!editTarget) return;
-    setStatusMessage('');
+  const handleUpdateDelegacia = async (
+  event: React.FormEvent<HTMLFormElement>
+) => {
+  event.preventDefault();
 
-    const res = await fetch('/api/delegacias', {
-      method: 'PUT',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        id: editTarget.id,
-        nome: editForm.nome,
-        codigo: editForm.codigo,
-        username: editForm.username,
-      }),
-    });
+  if (!editTarget) return;
 
-    if (res.ok) {
-      const updated = await res.json();
-      setDelegacias(updated);
-      setEditTarget(null);
-      setStatusMessage('Delegacia atualizada com sucesso.');
-      return;
-    }
+  setStatusMessage("");
 
-    const error = await res.json();
-    setStatusMessage(error?.error || 'Erro ao atualizar delegacia.');
-  };
+  if (
+    editForm.senha &&
+    editForm.senha !== editForm.senha2
+  ) {
+    setStatusMessage("As senhas não conferem.");
+    return;
+  }
 
-  const handleDeleteDelegacia = async (id: number, nome: string) => {
-    const confirmed = window.confirm(`Excluir a delegacia ${nome}? Esta ação não pode ser desfeita.`);
-    if (!confirmed) return;
-    const res = await fetch('/api/delegacias', {
-      method: 'DELETE',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ id }),
-    });
+  const res = await fetch("/api/delegacias", {
+    method: "PUT",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      id: editTarget.id,
+      nome: editForm.nome,
+      codigo: editForm.codigo,
+      username: editForm.username,
+      password: editForm.senha,
+    }),
+  });
 
-    if (res.ok) {
-      const updated = await res.json();
-      setDelegacias(updated);
-      setStatusMessage(`Delegacia ${nome} excluída.`);
-      if (selectedDelegaciaId === id) {
-        setSelectedDelegaciaId(null);
-        setIndices([]);
-      }
-      return;
-    }
+  if (res.ok) {
+    const updated = await res.json();
 
-    const error = await res.json();
-    setStatusMessage(error?.error || 'Erro ao excluir delegacia.');
-  };
+    setDelegacias(updated);
+
+    setEditTarget(null);
+
+    setStatusMessage("Delegacia atualizada com sucesso.");
+
+    return;
+  }
+
+  const error = await res.json();
+
+  setStatusMessage(
+    error?.error || "Erro ao atualizar delegacia."
+  );
+};
 
   const loadDelegaciaIndices = async (delegaciaId: number, nome: string) => {
     // Try the indices API (superuser). If forbidden or failing, fall back to recomputing from documentos
@@ -420,13 +439,22 @@ export default function Dashboard() {
 
   const activeTabs = role === 'superuser' ? superuserTabs : delegaciaTabs;
 
-  const displayTypes = indices.length > 0
-    ? indices
-    : TIPOS_DOCUMENTO.map((t) => ({ tipo: t, ultimo_numero: 0, numero_inicial: 1 }));
+  const displayTypes = TIPOS_DOCUMENTO.map((tipo) => {
+  const indice = indices.find((i) => i.tipo === tipo);
+
+  return (
+    indice ?? {
+      tipo,
+      ultimo_numero: 0,
+      numero_inicial: 1,
+    }
+  );
+});
 
   return (
     <div className="app-shell">
-      <Sidebar activeTab={activeTab || activeTabs[0]} onSelectTab={(t) => setActiveTab(t)} onSignOut={() => signOut({ callbackUrl: '/' })} />
+      <Sidebar activeTab={activeTab || activeTabs[0]} onSelectTab={(t) => setActiveTab(t)} onSignOut={() => signOut({ callbackUrl: "/" })} delegacias={delegacias}
+    />
       <main className="dashboard-main">
         <Header userName={name} delegaciaName={role === 'delegacia' ? session?.user?.delegacia?.nome : undefined} searchTerm={searchTerm} onSearchChange={setSearchTerm} />
 
@@ -613,7 +641,37 @@ export default function Dashboard() {
                     onChange={(event) => setEditForm((prev) => ({ ...prev, username: event.target.value }))}
                     required
                   />
+
                 </label>
+                <label>
+                    Nova senha
+                    <input
+                      type="password"
+                      value={editForm.senha}
+                      onChange={(event) =>
+                        setEditForm((prev) => ({
+                          ...prev,
+                          senha: event.target.value,
+                        }))
+                      }
+                      placeholder="Deixe em branco para manter a senha atual"
+                    />
+                  </label>
+
+                  <label>
+                    Confirmar nova senha
+                    <input
+                      type="password"
+                      value={editForm.senha2}
+                      onChange={(event) =>
+                        setEditForm((prev) => ({
+                          ...prev,
+                          senha2: event.target.value,
+                        }))
+                      }
+                      placeholder="Repita a nova senha"
+                    />
+                  </label>
                 <div>
                   <button type="submit" className="button primary" style={{ marginRight: '0.75rem' }}>
                     Salvar alterações
@@ -772,6 +830,20 @@ export default function Dashboard() {
                               });
                               if (res.ok) {
                                 const json = await res.json();
+                                // Copia automaticamente o número para a área de transferência
+                                  try {
+                                    await navigator.clipboard.writeText(json.numero);
+
+                                    setFeedback(
+                                      `✅ ${json.numero} gerado e copiado para a área de transferência.`
+                                    );
+                                  } catch (err) {
+                                    console.error(err);
+
+                                    setFeedback(
+                                      `✅ ${json.numero} gerado. Não foi possível copiar automaticamente.`
+                                    );
+                                  }
                                 setGeneratedNumber(json.numero);
                                 const docsRes = await fetch('/api/documentos');
                                 if (docsRes.ok) {

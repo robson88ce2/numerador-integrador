@@ -80,7 +80,13 @@ export default function LoginPage() {
                 <p>Proteção de dados e documentos.</p>
               </div>
             </div>
-            
+            <div className="benefit-item">
+              <span className="benefit-icon"><FileText size={18} /></span>
+              <div>
+                <strong>Documentos Oficiais</strong>
+                <p>Gerencie e acesse com praticidade.</p>
+              </div>
+            </div>
             <div className="benefit-item">
               <span className="benefit-icon"><Lock size={18} /></span>
               <div>
@@ -130,7 +136,7 @@ export default function LoginPage() {
           </div>
         </motion.form>
 
-       
+        <small className="login-note">🔒 Acesso exclusivo a servidores autorizados</small>
 
         <Toast message={error} type="error" />
       </div>

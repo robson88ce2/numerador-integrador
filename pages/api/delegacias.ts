@@ -38,12 +38,26 @@ const handler: NextApiHandler = async (req, res) => {
     }
 
     if (method === 'PUT') {
-      const { id, nome, codigo, username } = req.body;
-      await updateDelegacia(Number(id), nome, codigo, username);
-      const delegacias = await listDelegacias();
-      return res.status(200).json(delegacias);
-    }
+      const {
+        id,
+        nome,
+        codigo,
+        username,
+        password,
+      } = req.body;
 
+      await updateDelegacia(
+        Number(id),
+        nome,
+        codigo,
+        username,
+        password
+      );
+
+  const delegacias = await listDelegacias();
+
+  return res.status(200).json(delegacias);
+}
     if (method === 'DELETE') {
       const { id } = req.body;
       await deleteDelegacia(Number(id));
@@ -65,10 +79,15 @@ const handler: NextApiHandler = async (req, res) => {
     }
 
     return res.status(405).json({ error: 'Método não permitido.' });
-  } catch (error: any) {
-    const message = error?.message || 'Erro interno.';
-    return res.status(500).json({ error: message });
-  }
+ } catch (error: any) {
+  console.error("ERRO DELEGACIAS:", error);
+
+  return res.status(500).json({
+    error: error?.message || "Erro interno.",
+    stack: error?.stack,
+  });
+}
+
 };
 
 export default handler;
